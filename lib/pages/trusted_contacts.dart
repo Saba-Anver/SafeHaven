@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter/material.dart';
 import 'package:safe_haven/models/contact.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +14,7 @@ class TrustedContacts extends StatefulWidget {
 class _TrustedContactsState extends State<TrustedContacts> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  List<Contact> contacts = [];
+  List<Contacts> contacts = [];
   final _editNameController = TextEditingController();
   final _editPhoneController = TextEditingController();
   int editIndex = -1;
@@ -50,16 +50,37 @@ class _TrustedContactsState extends State<TrustedContacts> {
     await prefs.setStringList("Contacts List", l);
   }
 
-  Future<List<Contact>> readData() async {
+  Future<List<Contacts>> readData() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String> contactsList = prefs.getStringList("Contacts List") ?? [];
     print(contactsList);
-    List<Contact> contactObjectList = [];
+    List<Contacts> contactObjectList = [];
 
     for (String s in contactsList) {
-      contactObjectList.add(Contact.fromJson(jsonDecode(s)));
+      contactObjectList.add(Contacts.fromJson(jsonDecode(s)));
     }
     return contactObjectList;
+  }
+
+  void contactPicker() async {
+    // Request permissions
+    final status = await FlutterContacts.permissions.request(
+      PermissionType.read,
+    );
+    if (status == PermissionStatus.granted) {
+      Contact? picked = await FlutterContacts.native.showPicker(
+        properties: {ContactProperty.name, ContactProperty.phone},
+      );
+
+      setState(() {
+        if (picked != null) {
+          _nameController.text = picked.displayName!;
+          _phoneController.text = picked.phones.first.number;
+        } else {
+          return;
+        }
+      });
+    }
   }
 
   @override
@@ -95,7 +116,11 @@ class _TrustedContactsState extends State<TrustedContacts> {
                             width: 250,
                             child: TextFormField(
                               controller: _phoneController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
+                                suffixIcon: IconButton(
+                                  onPressed: contactPicker,
+                                  icon: Icon(Icons.contact_page_outlined),
+                                ),
                                 border: OutlineInputBorder(),
                                 labelText: "Phone Number",
                               ),
@@ -110,7 +135,7 @@ class _TrustedContactsState extends State<TrustedContacts> {
                         if (contacts.length < 3) {
                           setState(() {
                             contacts.add(
-                              Contact(
+                              Contacts(
                                 name: _nameController.text,
                                 phoneNo: _phoneController.text,
                               ),
